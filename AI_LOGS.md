@@ -1,3 +1,382 @@
+Today 2:37 PM
+
+ROUND 2  ·  BUILD ROUND
+The helpdesk is drowning
+Priya runs a two-person IT helpdesk and the queue never stops. Some tickets are ‘my laptop won’t boot before a client demo’ emergencies; others are ‘can I get a bigger monitor.’ Each ticket has a priority and an agreed response time — urgent within 2 hours, normal within a day — and Priya wants to always pick the most pressing ticket next, with anything past its promised time jumping to the front. She’s forever answering ‘what’s overdue?’ and ‘what’s assigned to me?’, and looking up a specific customer’s ticket by name. The list is huge, so she pages through it.
+Build Priya something so the right ticket is always on top.
+(The way Priya talks about her queue tells you what it needs — the ordering rule is the heart of it. Build it for any helpdesk, not just Priya’s. Get tickets and the queue order right first, then filters and assignment.)
+
+This Round 2 problem is basically asking you to build a Helpdesk Ticket Management API/application where the ticket priority + overdue status determine the queue order.
+
+Since this is a coding assessment, focus on getting the ordering logic correct first, then add filters, assignment, customer search, and pagination.
+
+1. Understand the requirement
+
+Each ticket can have:
+
+id
+customerName
+title/description
+priority → URGENT / NORMAL
+responseDeadline
+assignedTo
+status → OPEN, IN_PROGRESS, RESOLVED
+
+The most important rule is:
+
+Any overdue ticket must come before non-overdue tickets. Among the remaining tickets, urgent tickets should come before normal tickets.
+
+For example:
+
+Ticket	Priority	Deadline	Overdue?	Queue
+T101	NORMAL	10:00 AM	✅	1
+T102	URGENT	12:00 PM	❌	2
+T103	URGENT	2:00 PM	❌	3
+T104	NORMAL	4:00 PM	❌	4
+
+So the basic ordering becomes:
+
+OVERDUE
+   ↓
+URGENT
+   ↓
+NORMAL
+   ↓
+EARLIER DEADLINE
+Important
+
+Don't simply sort:
+
+URGENT → NORMAL
+
+because an overdue NORMAL ticket must jump ahead of an URGENT ticket that is still within its promised response time.
+
+2. Suggested database table
+
+If you're using SQL, create something like:
+
+CREATE TABLE tickets (
+    id INT PRIMARY KEY,
+    customer_name VARCHAR(100),
+    title VARCHAR(255),
+    priority VARCHAR(20),
+    status VARCHAR(30),
+    response_deadline TIMESTAMP,
+    assigned_to VARCHAR(100),
+    created_at TIMESTAMP
+);
+
+Example data:
+
+INSERT INTO tickets
+(id, customer_name, title, priority, status, response_deadline, assigned_to, created_at)
+VALUES
+(1, 'ABC Ltd', 'Laptop not booting', 'URGENT', 'OPEN',
+ '2026-09-16 16:00:00', 'Priya', '2026-09-16 12:00:00'),
+
+(2, 'XYZ Corp', 'Need bigger monitor', 'NORMAL', 'OPEN',
+ '2026-09-16 13:00:00', 'Rahul', '2026-09-16 09:00:00'),
+
+(3, 'Tech Solutions', 'VPN not working', 'URGENT', 'OPEN',
+ '2026-09-16 18:00:00', 'Priya', '2026-09-16 13:00:00');
+3. The HEART of Round 2 — Queue Ordering
+
+If you're using SQL, the logic can be:
+
+SELECT *
+FROM tickets
+WHERE status != 'RESOLVED'
+ORDER BY
+    CASE
+        WHEN response_deadline < CURRENT_TIMESTAMP THEN 0
+        ELSE 1
+    END,
+    CASE
+        WHEN priority = 'URGENT' THEN 0
+        ELSE 1
+    END,
+    response_deadline ASC;
+What this does
+
+First:
+
+response_deadline < CURRENT_TIMESTAMP
+
+checks whether the ticket is overdue.
+
+Overdue:
+
+0
+
+Not overdue:
+
+1
+
+Since SQL sorts ascending, overdue tickets come first.
+
+Then:
+
+URGENT = 0
+NORMAL = 1
+
+So urgent tickets come before normal tickets within the same overdue/non-overdue group.
+
+Finally:
+
+response_deadline ASC
+
+means the ticket with the earliest deadline comes first.
+
+4. API endpoints you can build
+
+A clean REST API structure:
+
+GET    /api/tickets
+GET    /api/tickets/{id}
+POST   /api/tickets
+PUT    /api/tickets/{id}
+DELETE /api/tickets/{id}
+
+GET    /api/tickets/overdue
+GET    /api/tickets/assigned/{agent}
+GET    /api/tickets/customer/{customerName}
+
+But you can make it even cleaner by putting filters into the main endpoint:
+
+GET /api/tickets?overdue=true
+GET /api/tickets?assignedTo=Priya
+GET /api/tickets?customerName=ABC
+GET /api/tickets?priority=URGENT
+5. Pagination
+
+Because the problem specifically says:
+
+"The list is huge, so she pages through it."
+
+Your API should support:
+
+GET /api/tickets?page=1&pageSize=10
+
+SQL:
+
+SELECT *
+FROM tickets
+WHERE status != 'RESOLVED'
+ORDER BY
+    CASE
+        WHEN response_deadline < CURRENT_TIMESTAMP THEN 0
+        ELSE 1
+    END,
+    CASE
+        WHEN priority = 'URGENT' THEN 0
+        ELSE 1
+    END,
+    response_deadline ASC
+LIMIT 10 OFFSET 0;
+
+For page 2:
+
+LIMIT 10 OFFSET 10
+
+General formula:
+
+OFFSET = (page - 1) × pageSize
+6. Recommended response
+
+Your API can return:
+
+{
+  "page": 1,
+  "pageSize": 10,
+  "totalTickets": 35,
+  "totalPages": 4,
+  "tickets": [
+    {
+      "id": 2,
+      "customerName": "XYZ Corp",
+      "title": "Need bigger monitor",
+      "priority": "NORMAL",
+      "status": "OPEN",
+      "responseDeadline": "2026-09-16T13:00:00",
+      "assignedTo": "Rahul",
+      "overdue": true
+    }
+  ]
+}
+
+The overdue field is particularly useful for the frontend.
+
+7. If you're building this in Java/Spring Boot
+
+A good project structure is:
+
+helpdesk/
+│
+├── controller/
+│     └── TicketController.java
+│
+├── service/
+│     └── TicketService.java
+│
+├── repository/
+│     └── TicketRepository.java
+│
+├── model/
+│     └── Ticket.java
+│
+├── dto/
+│     └── TicketResponse.java
+│
+└── HelpdeskApplication.java
+Ticket model
+@Entity
+public class Ticket {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String customerName;
+    private String title;
+
+    @Enumerated(EnumType.STRING)
+    private Priority priority;
+
+    @Enumerated(EnumType.STRING)
+    private Status status;
+
+    private LocalDateTime responseDeadline;
+
+    private String assignedTo;
+
+    private LocalDateTime createdAt;
+
+    // getters and setters
+}
+
+Enums:
+
+public enum Priority {
+    URGENT,
+    NORMAL
+}
+public enum Status {
+    OPEN,
+    IN_PROGRESS,
+    RESOLVED
+}
+8. Repository ordering
+
+For Spring Data JPA, you can implement the queue ordering with a custom query:
+
+@Query("""
+    SELECT t FROM Ticket t
+    WHERE t.status <> 'RESOLVED'
+    ORDER BY
+      CASE WHEN t.responseDeadline < CURRENT_TIMESTAMP THEN 0 ELSE 1 END,
+      CASE WHEN t.priority = 'URGENT' THEN 0 ELSE 1 END,
+      t.responseDeadline ASC
+""")
+Page<Ticket> findQueue(Pageable pageable);
+
+Then:
+
+@GetMapping
+public Page<Ticket> getTickets(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+
+    Pageable pageable = PageRequest.of(page, size);
+
+    return ticketRepository.findQueue(pageable);
+}
+9. Filters
+
+Then add:
+
+Overdue
+GET /api/tickets?overdue=true
+
+Logic:
+
+responseDeadline.isBefore(LocalDateTime.now())
+Assigned to me
+GET /api/tickets?assignedTo=Priya
+Customer
+GET /api/tickets?customerName=ABC
+
+For partial customer-name search:
+
+GET /api/tickets?customerName=abc
+
+should find:
+
+ABC Ltd
+ABC Technologies
+ABC Corporation
+10. What I would implement first in the assessment
+
+Don't spend the first 30 minutes making a beautiful UI.
+
+Follow this order:
+
+1. Create Ticket model
+        ↓
+2. Create database
+        ↓
+3. Create GET /tickets
+        ↓
+4. Implement QUEUE ORDERING ⭐
+        ↓
+5. Test overdue tickets
+        ↓
+6. Test urgent vs normal
+        ↓
+7. Add pagination
+        ↓
+8. Add overdue filter
+        ↓
+9. Add assigned-to filter
+        ↓
+10. Add customer search
+        ↓
+11. Add POST/UPDATE if required
+        ↓
+12. Basic frontend/UI
+The interviewer is likely checking this especially:
+
+Case 1
+
+URGENT + not overdue
+NORMAL + overdue
+
+Expected:
+
+NORMAL + overdue
+URGENT + not overdue
+
+Case 2
+
+URGENT + overdue
+NORMAL + overdue
+
+Expected:
+
+URGENT + overdue
+NORMAL + overdue
+
+Case 3
+
+URGENT + not overdue
+NORMAL + not overdue
+
+Expected:
+
+URGENT
+NORMAL
+
+That is the core logic of the entire problem. Get this working correctly first, then build the filters and pagination around it.
+
 abe yeah hau
 yeah 
 yeah 
@@ -10,1259 +389,6 @@ old se yeah aaya hai
  yeah aaya haiu
 yeah aaya hai 
 yeah aaya h lekin isme refresh  tickets and teams par click nahi ho raha hai 
-
-Bilkul 👍 Main tumhe complete code fresh de raha hoon, taaki koi confusion na rahe. Tum 3 files ka pura code replace kar do:
-
-src/main/resources/static/
-├── index.html
-├── style.css
-└── app.js
-1. index.html
-
-Pura code replace karo:
-
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Smart Helpdesk</title>
-
-    <link rel="stylesheet" href="style.css">
-</head>
-
-<body>
-
-<div class="app">
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-
-        <div class="brand">
-
-            <div class="brand-icon">H</div>
-
-            <div>
-                <h2>Helpdesk</h2>
-                <span>Support Center</span>
-            </div>
-
-        </div>
-
-        <nav>
-
-            <a href="#" class="nav-item active"
-               onclick="showDashboard(event)">
-                <span>▣</span>
-                Dashboard
-            </a>
-
-            <a href="#ticketSection" class="nav-item"
-               onclick="showTickets(event)">
-                <span>▤</span>
-                Tickets
-            </a>
-
-            <a href="#teamSection" class="nav-item"
-               onclick="showTeam(event)">
-                <span>◉</span>
-                Team
-            </a>
-
-        </nav>
-
-        <div class="sidebar-bottom">
-
-            <div class="system-status">
-                <span class="status-dot"></span>
-                System Online
-            </div>
-
-        </div>
-
-    </aside>
-
-
-    <!-- MAIN CONTENT -->
-    <main class="main">
-
-        <!-- HEADER -->
-        <header class="topbar">
-
-            <div>
-                <h1>Dashboard</h1>
-                <p>Monitor and manage support tickets</p>
-            </div>
-
-            <button class="refresh-btn"
-                    onclick="loadTickets()">
-                ↻ Refresh
-            </button>
-
-        </header>
-
-
-        <!-- STATISTICS -->
-        <section class="stats-grid">
-
-            <div class="stat-card">
-
-                <div class="stat-icon blue">
-                    ◫
-                </div>
-
-                <div>
-                    <span>Total Tickets</span>
-                    <strong id="totalTickets">0</strong>
-                </div>
-
-            </div>
-
-
-            <div class="stat-card">
-
-                <div class="stat-icon red">
-                    !
-                </div>
-
-                <div>
-                    <span>Overdue</span>
-                    <strong id="overdueTickets">0</strong>
-                </div>
-
-            </div>
-
-
-            <div class="stat-card">
-
-                <div class="stat-icon orange">
-                    ↑
-                </div>
-
-                <div>
-                    <span>Urgent</span>
-                    <strong id="urgentTickets">0</strong>
-                </div>
-
-            </div>
-
-
-            <div class="stat-card">
-
-                <div class="stat-icon green">
-                    ✓
-                </div>
-
-                <div>
-                    <span>My Tickets</span>
-                    <strong id="myTickets">0</strong>
-                </div>
-
-            </div>
-
-        </section>
-
-
-        <!-- FILTER PANEL -->
-        <section class="filter-panel">
-
-            <div class="filter-title">
-
-                <h2>Ticket Queue</h2>
-
-                <span id="queueInfo">
-                    Loading...
-                </span>
-
-            </div>
-
-
-            <div class="filters">
-
-                <!-- CUSTOMER SEARCH -->
-
-                <input
-                    type="text"
-                    id="customerSearch"
-                    placeholder="Search customer..."
-                    oninput="applyFilters()"
-                >
-
-
-                <!-- PRIORITY -->
-
-                <select
-                    id="priorityFilter"
-                    onchange="applyFilters()">
-
-                    <option value="">All Priority</option>
-                    <option value="URGENT">Urgent</option>
-                    <option value="HIGH">High</option>
-                    <option value="NORMAL">Normal</option>
-
-                </select>
-
-
-                <!-- ASSIGNEE -->
-
-                <select
-                    id="assigneeFilter"
-                    onchange="applyFilters()">
-
-                    <option value="">All Assignees</option>
-                    <option value="Priya">Priya</option>
-                    <option value="Rahul">Rahul</option>
-
-                </select>
-
-
-                <!-- OVERDUE -->
-
-                <select
-                    id="overdueFilter"
-                    onchange="applyFilters()">
-
-                    <option value="">All Tickets</option>
-                    <option value="true">Overdue</option>
-                    <option value="false">Not Overdue</option>
-
-                </select>
-
-            </div>
-
-        </section>
-
-
-        <!-- TICKET TABLE -->
-
-        <section class="table-card"
-                 id="ticketSection">
-
-            <div class="table-wrapper">
-
-                <table>
-
-                    <thead>
-
-                    <tr>
-
-                        <th>ID</th>
-                        <th>CUSTOMER</th>
-                        <th>ISSUE</th>
-                        <th>PRIORITY</th>
-                        <th>DEADLINE</th>
-                        <th>ASSIGNED TO</th>
-                        <th>STATUS</th>
-
-                    </tr>
-
-                    </thead>
-
-                    <tbody id="ticketTable">
-
-                    </tbody>
-
-                </table>
-
-            </div>
-
-
-            <!-- PAGINATION -->
-
-            <div class="pagination">
-
-                <button
-                    id="previousButton"
-                    onclick="previousPage()">
-
-                    ← Previous
-
-                </button>
-
-
-                <span id="pageNumber">
-                    Page 1
-                </span>
-
-
-                <button
-                    id="nextButton"
-                    onclick="nextPage()">
-
-                    Next →
-
-                </button>
-
-            </div>
-
-        </section>
-
-
-        <!-- TEAM SECTION -->
-
-        <section class="team-section"
-                 id="teamSection">
-
-            <div class="team-header">
-
-                <div>
-
-                    <h2>Support Team</h2>
-
-                    <p>
-                        Helpdesk team members and their assigned workload
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            <div class="team-grid">
-
-                <div class="team-card">
-
-                    <div class="team-avatar">
-                        P
-                    </div>
-
-                    <div>
-
-                        <h3>Priya</h3>
-
-                        <span>
-                            Support Agent
-                        </span>
-
-                    </div>
-
-                </div>
-
-
-                <div class="team-card">
-
-                    <div class="team-avatar">
-                        R
-                    </div>
-
-                    <div>
-
-                        <h3>Rahul</h3>
-
-                        <span>
-                            Support Agent
-                        </span>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>
-
-    </main>
-
-</div>
-
-
-<script src="app.js"></script>
-
-</body>
-
-</html>
-2. style.css
-
-Pura style.css bhi replace kar do:
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f5f7fb;
-    color: #172033;
-}
-
-.app {
-    display: flex;
-    min-height: 100vh;
-}
-
-/* ================= SIDEBAR ================= */
-
-.sidebar {
-    width: 240px;
-    background: #111827;
-    color: white;
-    padding: 24px 16px;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 10px 30px;
-    border-bottom: 1px solid #293241;
-}
-
-.brand-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 10px;
-    background: #2563eb;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 21px;
-    font-weight: bold;
-}
-
-.brand h2 {
-    font-size: 18px;
-}
-
-.brand span {
-    color: #9ca3af;
-    font-size: 12px;
-}
-
-nav {
-    margin-top: 25px;
-}
-
-.nav-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: #cbd5e1;
-    text-decoration: none;
-    padding: 12px 14px;
-    border-radius: 8px;
-    margin-bottom: 6px;
-    font-size: 14px;
-    cursor: pointer;
-}
-
-.nav-item.active {
-    background: #2563eb;
-    color: white;
-}
-
-.nav-item:hover {
-    background: #1f2937;
-}
-
-.nav-item.active:hover {
-    background: #2563eb;
-}
-
-.sidebar-bottom {
-    margin-top: auto;
-}
-
-.system-status {
-    color: #9ca3af;
-    font-size: 13px;
-    padding: 10px;
-}
-
-.status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: #22c55e;
-    border-radius: 50%;
-    margin-right: 7px;
-}
-
-/* ================= MAIN ================= */
-
-.main {
-    flex: 1;
-    padding: 30px;
-    min-width: 0;
-}
-
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 28px;
-}
-
-.topbar h1 {
-    font-size: 30px;
-    margin-bottom: 5px;
-}
-
-.topbar p {
-    color: #6b7280;
-    font-size: 14px;
-}
-
-.refresh-btn {
-    border: none;
-    background: #2563eb;
-    color: white;
-    padding: 11px 18px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.refresh-btn:hover {
-    background: #1d4ed8;
-}
-
-/* ================= STATS ================= */
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
-    margin-bottom: 24px;
-}
-
-.stat-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.stat-card span {
-    display: block;
-    color: #6b7280;
-    font-size: 13px;
-    margin-bottom: 7px;
-}
-
-.stat-card strong {
-    font-size: 27px;
-}
-
-.stat-icon {
-    width: 45px;
-    height: 45px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    font-weight: bold;
-}
-
-.stat-icon.blue {
-    background: #dbeafe;
-    color: #2563eb;
-}
-
-.stat-icon.red {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
-.stat-icon.orange {
-    background: #ffedd5;
-    color: #ea580c;
-}
-
-.stat-icon.green {
-    background: #dcfce7;
-    color: #16a34a;
-}
-
-/* ================= FILTERS ================= */
-
-.filter-panel {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-}
-
-.filter-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 18px;
-}
-
-.filter-title h2 {
-    font-size: 18px;
-}
-
-.filter-title span {
-    color: #6b7280;
-    font-size: 13px;
-}
-
-.filters {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr 1fr;
-    gap: 12px;
-}
-
-.filters input,
-.filters select {
-    width: 100%;
-    padding: 11px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background: white;
-    color: #374151;
-    outline: none;
-    font-size: 14px;
-}
-
-.filters input:focus,
-.filters select:focus {
-    border-color: #2563eb;
-}
-
-/* ================= TABLE ================= */
-
-.table-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.table-wrapper {
-    width: 100%;
-    overflow-x: auto;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 850px;
-}
-
-thead {
-    background: #f8fafc;
-}
-
-th {
-    text-align: left;
-    padding: 14px 16px;
-    color: #64748b;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-td {
-    padding: 16px;
-    border-bottom: 1px solid #eef0f3;
-    font-size: 13px;
-}
-
-tbody tr:hover {
-    background: #f8fafc;
-}
-
-.priority {
-    font-weight: 700;
-}
-
-.priority.urgent {
-    color: #dc2626;
-}
-
-.priority.high {
-    color: #ea580c;
-}
-
-.priority.normal {
-    color: #2563eb;
-}
-
-.overdue {
-    color: #dc2626;
-    font-weight: 700;
-}
-
-/* ================= STATUS ================= */
-
-.status-badge {
-    display: inline-block;
-    padding: 5px 9px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    background: #f1f5f9;
-    color: #475569;
-}
-
-/* ================= PAGINATION ================= */
-
-.pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    padding: 18px;
-}
-
-.pagination button {
-    border: 1px solid #d1d5db;
-    background: white;
-    color: #374151;
-    padding: 9px 15px;
-    border-radius: 7px;
-    cursor: pointer;
-}
-
-.pagination button:hover:not(:disabled) {
-    background: #f1f5f9;
-}
-
-.pagination button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-}
-
-.pagination span {
-    color: #64748b;
-    font-size: 13px;
-}
-
-/* ================= TEAM ================= */
-
-.team-section {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 24px;
-    margin-top: 20px;
-}
-
-.team-header {
-    margin-bottom: 20px;
-}
-
-.team-header h2 {
-    font-size: 20px;
-    margin-bottom: 5px;
-}
-
-.team-header p {
-    color: #6b7280;
-    font-size: 13px;
-}
-
-.team-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-}
-
-.team-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 18px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.team-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: #dbeafe;
-    color: #2563eb;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 18px;
-}
-
-.team-card h3 {
-    font-size: 15px;
-    margin-bottom: 4px;
-}
-
-.team-card span {
-    color: #6b7280;
-    font-size: 12px;
-}
-
-/* ================= ERROR ================= */
-
-.error-message {
-    text-align: center;
-    padding: 40px;
-    color: #dc2626;
-}
-
-/* ================= RESPONSIVE ================= */
-
-@media (max-width: 1000px) {
-
-    .sidebar {
-        width: 200px;
-    }
-
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .filters {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-
-@media (max-width: 700px) {
-
-    .sidebar {
-        display: none;
-    }
-
-    .main {
-        padding: 18px;
-    }
-
-    .topbar h1 {
-        font-size: 24px;
-    }
-
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .filters {
-        grid-template-columns: 1fr;
-    }
-
-    .team-grid {
-        grid-template-columns: 1fr;
-    }
-}
-3. app.js
-
-Ab app.js ka pura code replace karo:
-
-let currentPage = 0;
-
-const pageSize = 10;
-
-
-/* ================= LOAD TICKETS ================= */
-
-async function loadTickets() {
-
-    const customerName =
-        document.getElementById("customerSearch").value.trim();
-
-    const priority =
-        document.getElementById("priorityFilter").value;
-
-    const assignedTo =
-        document.getElementById("assigneeFilter").value;
-
-    const overdue =
-        document.getElementById("overdueFilter").value;
-
-
-    const params = new URLSearchParams();
-
-    params.append("page", currentPage);
-    params.append("size", pageSize);
-
-
-    if (customerName) {
-        params.append("customerName", customerName);
-    }
-
-    if (priority) {
-        params.append("priority", priority);
-    }
-
-    if (assignedTo) {
-        params.append("assignedTo", assignedTo);
-    }
-
-    if (overdue) {
-        params.append("overdue", overdue);
-    }
-
-
-    try {
-
-        const response =
-            await fetch(`/api/tickets?${params.toString()}`);
-
-
-        if (!response.ok) {
-            throw new Error("Unable to load tickets");
-        }
-
-
-        const data =
-            await response.json();
-
-
-        displayTickets(data);
-
-
-    } catch (error) {
-
-        console.error("Error:", error);
-
-
-        document.getElementById("ticketTable").innerHTML = `
-            <tr>
-                <td colspan="7" class="error-message">
-                    Unable to load tickets.
-                    Please refresh the page.
-                </td>
-            </tr>
-        `;
-    }
-}
-
-
-/* ================= DISPLAY TICKETS ================= */
-
-function displayTickets(data) {
-
-    const table =
-        document.getElementById("ticketTable");
-
-
-    table.innerHTML = "";
-
-
-    let overdueCount = 0;
-
-    let urgentCount = 0;
-
-    let myTickets = 0;
-
-
-    data.content.forEach(ticket => {
-
-
-        const isOverdue =
-            new Date(ticket.responseDeadline) < new Date();
-
-
-        if (isOverdue) {
-            overdueCount++;
-        }
-
-
-        if (ticket.priority === "URGENT") {
-            urgentCount++;
-        }
-
-
-        if (ticket.assignedTo === "Priya") {
-            myTickets++;
-        }
-
-
-        const row =
-            document.createElement("tr");
-
-
-        row.innerHTML = `
-
-            <td>
-                <strong>#${ticket.id}</strong>
-            </td>
-
-            <td>
-                ${escapeHtml(ticket.customerName)}
-            </td>
-
-            <td>
-                <strong>
-                    ${escapeHtml(ticket.title)}
-                </strong>
-            </td>
-
-            <td>
-                <span class="priority ${ticket.priority.toLowerCase()}">
-                    ${ticket.priority}
-                </span>
-            </td>
-
-            <td class="${isOverdue ? "overdue" : ""}">
-                ${
-                    isOverdue
-                        ? "OVERDUE"
-                        : formatDate(ticket.responseDeadline)
-                }
-            </td>
-
-            <td>
-                ${
-                    ticket.assignedTo
-                        ? escapeHtml(ticket.assignedTo)
-                        : "Unassigned"
-                }
-            </td>
-
-            <td>
-                <span class="status-badge">
-                    ${ticket.status}
-                </span>
-            </td>
-
-        `;
-
-
-        table.appendChild(row);
-
-    });
-
-
-    /* EMPTY STATE */
-
-    if (data.content.length === 0) {
-
-        table.innerHTML = `
-            <tr>
-                <td colspan="7"
-                    style="text-align:center; padding:40px;">
-                    No tickets found
-                </td>
-            </tr>
-        `;
-    }
-
-
-    /* STATISTICS */
-
-    document.getElementById("totalTickets").textContent =
-        data.totalElements;
-
-
-    document.getElementById("overdueTickets").textContent =
-        overdueCount;
-
-
-    document.getElementById("urgentTickets").textContent =
-        urgentCount;
-
-
-    document.getElementById("myTickets").textContent =
-        myTickets;
-
-
-    /* QUEUE INFO */
-
-    document.getElementById("queueInfo").textContent =
-        `${data.totalElements} ticket${
-            data.totalElements === 1 ? "" : "s"
-        }`;
-
-
-    /* PAGINATION */
-
-    const totalPages =
-        data.totalPages || 1;
-
-
-    document.getElementById("pageNumber").textContent =
-        `Page ${data.number + 1} of ${totalPages}`;
-
-
-    document.getElementById("previousButton").disabled =
-        data.first;
-
-
-    document.getElementById("nextButton").disabled =
-        data.last;
-}
-
-
-/* ================= FILTERS ================= */
-
-function applyFilters() {
-
-    currentPage = 0;
-
-    loadTickets();
-}
-
-
-/* ================= PAGINATION ================= */
-
-function nextPage() {
-
-    currentPage++;
-
-    loadTickets();
-}
-
-
-function previousPage() {
-
-    if (currentPage > 0) {
-
-        currentPage--;
-
-        loadTickets();
-    }
-}
-
-
-/* ================= DATE ================= */
-
-function formatDate(dateString) {
-
-    const date =
-        new Date(dateString);
-
-
-    return date.toLocaleString();
-}
-
-
-/* ================= SECURITY ================= */
-
-function escapeHtml(value) {
-
-    if (!value) {
-        return "";
-    }
-
-
-    return String(value)
-
-        .replace(/&/g, "&amp;")
-
-        .replace(/</g, "&lt;")
-
-        .replace(/>/g, "&gt;")
-
-        .replace(/"/g, "&quot;")
-
-        .replace(/'/g, "&#039;");
-}
-
-
-/* ================= NAVIGATION ================= */
-
-function setActiveNav(clickedItem) {
-
-    document
-        .querySelectorAll(".nav-item")
-        .forEach(item => {
-
-            item.classList.remove("active");
-
-        });
-
-
-    clickedItem.classList.add("active");
-}
-
-
-function showDashboard(event) {
-
-    event.preventDefault();
-
-
-    setActiveNav(event.currentTarget);
-
-
-    window.scrollTo({
-
-        top: 0,
-
-        behavior: "smooth"
-
-    });
-}
-
-
-function showTickets(event) {
-
-    event.preventDefault();
-
-
-    setActiveNav(event.currentTarget);
-
-
-    document
-        .getElementById("ticketSection")
-        .scrollIntoView({
-
-            behavior: "smooth"
-
-        });
-}
-
-
-function showTeam(event) {
-
-    event.preventDefault();
-
-
-    setActiveNav(event.currentTarget);
-
-
-    document
-        .getElementById("teamSection")
-        .scrollIntoView({
-
-            behavior: "smooth"
-
-        });
-}
-
-
-/* ================= INITIAL LOAD ================= */
-
-loadTickets();
-Ab save karo
-
-Teeno:
-
-Ctrl + S
-Phir browser refresh:
-Ctrl + R
-
-Ab:
-
-Dashboard click → top par
-Tickets click → ticket table par
-Team click → Team section par
-Refresh click → latest API data
-Customer search → backend search
-Priority → backend filter
-Assignee → backend filter
-Overdue → backend filter
-Pagination → backend pagination
-⚠️ Abhi database empty hai
-
-Dashboard par 0 tickets dikhna normal hai, kyunki server restart ke baad H2 reset hua hai.
-
-Abhi server ko restart mat karna. Browser refresh karke dekho ki dashboard same/properly load ho raha hai.
-
-Uske baad next hum Add New Ticket form banayenge, jisse browser se hi ticket create hoga — curl ki zarurat nahi padegi.
-
 done these is woking 
 hogya 
 
