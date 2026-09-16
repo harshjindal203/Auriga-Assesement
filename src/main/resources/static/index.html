@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Helpdesk</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-icon">H</div>
+
+            <div>
+                <h2>Helpdesk</h2>
+                <span>Support Center</span>
+            </div>
+        </div>
+
+        <nav>
+
+            <a href="#" class="nav-item active"
+               onclick="showDashboard(event)">
+                <span>▣</span>
+                Dashboard
+            </a>
+
+            <a href="#ticketSection" class="nav-item"
+               onclick="showTickets(event)">
+                <span>▤</span>
+                Tickets
+            </a>
+
+            <a href="#teamSection" class="nav-item"
+               onclick="showTeam(event)">
+                <span>◉</span>
+                Team
+            </a>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+            <div class="system-status">
+                <span class="status-dot"></span>
+                System Online
+            </div>
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- HEADER -->
+        <header class="topbar">
+
+            <div>
+                <h1>Dashboard</h1>
+                <p>Monitor and manage support tickets</p>
+            </div>
+
+            <div class="header-actions">
+
+                <button class="new-ticket-btn"
+                        onclick="openTicketModal()">
+                    + New Ticket
+                </button>
+
+                <button class="refresh-btn"
+                        onclick="loadTickets()">
+                    ↻ Refresh
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- STATISTICS -->
+        <section class="stats-grid">
+
+            <div class="stat-card">
+                <div class="stat-icon blue">◫</div>
+
+                <div>
+                    <span>Total Tickets</span>
+                    <strong id="totalTickets">0</strong>
+                </div>
+            </div>
+
+
+            <div class="stat-card">
+                <div class="stat-icon red">!</div>
+
+                <div>
+                    <span>Overdue</span>
+                    <strong id="overdueTickets">0</strong>
+                </div>
+            </div>
+
+
+            <div class="stat-card">
+                <div class="stat-icon orange">↑</div>
+
+                <div>
+                    <span>Urgent</span>
+                    <strong id="urgentTickets">0</strong>
+                </div>
+            </div>
+
+
+            <div class="stat-card">
+                <div class="stat-icon green">✓</div>
+
+                <div>
+                    <span>My Tickets</span>
+                    <strong id="myTickets">0</strong>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- FILTERS -->
+        <section class="filter-panel">
+
+            <div class="filter-title">
+
+                <div>
+                    <h2>Ticket Queue</h2>
+                    <p class="queue-subtitle">
+                        Prioritized by urgency and response deadline
+                    </p>
+                </div>
+
+                <span id="queueInfo">Loading...</span>
+
+            </div>
+
+
+            <div class="filters">
+
+                <input
+                    type="text"
+                    id="customerSearch"
+                    placeholder="Search customer..."
+                    oninput="applyFilters()"
+                >
+
+
+                <select id="priorityFilter"
+                        onchange="applyFilters()">
+
+                    <option value="">All Priority</option>
+                    <option value="URGENT">Urgent</option>
+                    <option value="HIGH">High</option>
+                    <option value="NORMAL">Normal</option>
+
+                </select>
+
+
+                <select id="assigneeFilter"
+                        onchange="applyFilters()">
+
+                    <option value="">All Assignees</option>
+                    <option value="Priya">Priya</option>
+                    <option value="Rahul">Rahul</option>
+
+                </select>
+
+
+                <select id="overdueFilter"
+                        onchange="applyFilters()">
+
+                    <option value="">All Tickets</option>
+                    <option value="true">Overdue</option>
+                    <option value="false">Not Overdue</option>
+
+                </select>
+
+            </div>
+
+        </section>
+
+
+        <!-- TICKET TABLE -->
+        <section class="table-card"
+                 id="ticketSection">
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                    <tr>
+                        <th>ID</th>
+                        <th>CUSTOMER</th>
+                        <th>ISSUE</th>
+                        <th>PRIORITY</th>
+                        <th>DEADLINE</th>
+                        <th>ASSIGNED TO</th>
+                        <th>STATUS</th>
+                    </tr>
+
+                    </thead>
+
+                    <tbody id="ticketTable"></tbody>
+
+                </table>
+
+            </div>
+
+
+            <div class="pagination">
+
+                <button id="previousButton"
+                        onclick="previousPage()">
+                    ← Previous
+                </button>
+
+                <span id="pageNumber">
+                    Page 1
+                </span>
+
+                <button id="nextButton"
+                        onclick="nextPage()">
+                    Next →
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- TEAM -->
+        <section class="team-section"
+                 id="teamSection">
+
+            <div class="team-header">
+
+                <h2>Support Team</h2>
+
+                <p>
+                    Helpdesk team members and their assigned workload
+                </p>
+
+            </div>
+
+
+            <div class="team-grid">
+
+                <div class="team-card">
+
+                    <div class="team-avatar">P</div>
+
+                    <div>
+                        <h3>Priya</h3>
+                        <span>Support Agent</span>
+                    </div>
+
+                </div>
+
+
+                <div class="team-card">
+
+                    <div class="team-avatar">R</div>
+
+                    <div>
+                        <h3>Rahul</h3>
+                        <span>Support Agent</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- CREATE TICKET MODAL -->
+
+<div id="ticketModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <div>
+                <h2>Create New Ticket</h2>
+                <p>Create a support request</p>
+            </div>
+
+            <button class="close-btn"
+                    onclick="closeTicketModal()">
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="ticketForm">
+
+            <div class="form-group">
+                <label>Customer Name</label>
+
+                <input
+                    id="newCustomerName"
+                    type="text"
+                    placeholder="Enter customer name"
+                    required>
+            </div>
+
+
+            <div class="form-group">
+                <label>Issue Title</label>
+
+                <input
+                    id="newTitle"
+                    type="text"
+                    placeholder="Enter issue"
+                    required>
+            </div>
+
+
+            <div class="form-group">
+                <label>Description</label>
+
+                <textarea
+                    id="newDescription"
+                    placeholder="Describe the issue"></textarea>
+            </div>
+
+
+            <div class="form-row">
+
+                <div class="form-group">
+
+                    <label>Priority</label>
+
+                    <select id="newPriority">
+
+                        <option value="NORMAL">Normal</option>
+                        <option value="HIGH">High</option>
+                        <option value="URGENT">Urgent</option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Assigned To</label>
+
+                    <select id="newAssignedTo">
+
+                        <option value="Priya">Priya</option>
+                        <option value="Rahul">Rahul</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Response Deadline</label>
+
+                <input
+                    id="newDeadline"
+                    type="datetime-local"
+                    required>
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button type="button"
+                        class="cancel-btn"
+                        onclick="closeTicketModal()">
+                    Cancel
+                </button>
+
+                <button type="submit"
+                        class="create-btn">
+                    Create Ticket
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script src="app.js"></script>
+
+</body>
+</html>
